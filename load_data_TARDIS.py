@@ -448,6 +448,60 @@ class ImportDataFromAmira:
 
         return np.stack((segmentation, points[:, 0], points[:, 1], points[:, 2])).T
 
+    def get_vertex_labels(self) -> Union[np.ndarray, None]:
+        if self.spatial_graph is None:
+            return None
+
+        # Find line starting with EDGE { int NumEdgePoints } associated with all labels
+        labels = [
+            word
+            for word in self.spatial_graph
+            if word.startswith("VERTEX { int ")
+            and not "NearestPatch" in word
+        ]
+
+        # Find line define EDGE ... <- number indicate number of segments
+        segment_no = str(
+            [word for word in self.spatial_graph if word.startswith("define VERTEX")]
+        )
+
+        labels_dict = {}
+        for i in labels:
+            # Find line starting with EDGE { int label }
+            label_start = "".join((ch if ch in "0123456789" else " ") for ch in i)
+            label_start = [int(i) for i in label_start.split()][-1:]
+
+            # Find in the line directory that starts with @...
+            try:
+                label_start = (
+                    int(self.spatial_graph.index("@" + str(label_start[0]))) + 1
+                )
+            except ValueError:
+                label_start = (
+                    int(self.spatial_graph.index("@" + str(label_start[0]) + " ")) + 1
+                )
+
+            label_finish = "".join(
+                (ch if ch in "0123456789" else " ") for ch in segment_no
+            )
+            label_finish = [int(i) for i in label_finish.split()]
+
+            label_no = int(label_finish[0])
+            label_finish = label_start + int(label_finish[0])
+
+            # Select all lines between @... (+1) and number of segments
+            label = self.spatial_graph[label_start:label_finish]
+            label = [i.split(" ")[0] for i in label]
+
+            # return an array of number of points belonged to each segment
+            label_list = np.zeros((label_no, 1), dtype="int")
+            label_list[0:label_no, 0] = [int(i) for i in label]
+            label_list = np.where(label_list != 0)[0]
+
+            labels_dict.update({i[12:-5].replace(" ", "").replace("}", ""): label_list})
+
+        return labels_dict
+    
     def get_labels(self) -> Union[dict, None]:
         """
         Determines and returns a dictionary representing labels and their corresponding

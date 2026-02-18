@@ -1,0 +1,7 @@
+pandas
+numpy
+scipy
+openpyxl
+tifffile
+scikit-learn
+tardis_em

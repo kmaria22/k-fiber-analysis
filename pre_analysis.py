@@ -1,6 +1,10 @@
 import re
+from load_data_TARDIS import ImportDataFromAmira
 import numpy as np
 import pandas as pd
+import tkinter as tk
+from tkinter import filedialog
+
 
 class MicrotubulePreAnalysis:
     """
@@ -212,20 +216,33 @@ class MicrotubulePreAnalysis:
 if __name__ == "__main__":
     print("microtubule_pre_analysis.py started...")
 
-    try:
-        # Import data loaded earlier
-        from load_data_TARDIS import segments, points, pole1, pole2
-        print("Data imported successfully.")
-    except Exception as e:
-        print("Failed to import data from load_data_TARDIS.py:", e)
-        raise SystemExit(1)
+    root = tk.Tk()
+    root.withdraw()
 
-    # Run the pre-analysis
-    analysis = MicrotubulePreAnalysis(segments, points, pole1, pole2)
-    results = analysis.pre_analysis()
+    am_path = filedialog.askopenfilename(
+        title="Select your Amira Spatial Graph (.am)",
+        filetypes=[("Amira files", "*.am")]
+    )
 
-    print("Pre-analysis finished successfully.")
-    print("Number of fibers processed:", len(results))
-    print("Fiber names:", list(results.keys()))
-    print("microtubule_pre_analysis.py done.")
+    if not am_path:
+        print("No file selected. Exiting.")
+    else:
+        print("Loading dataset:", am_path)
+        data = ImportDataFromAmira(src_am=am_path)
 
+        points = data.get_segmented_points() # DataFrame with columns ['Point_ID', 'X', 'Y', 'Z']
+        labels = data.get_labels() # dictionary {Name1: [Point_IDs], Name2: [Point_IDs], ...}
+        labels_v = data.get_vertex_labels() # {Name1: [points[id, 0]], Name2: [points[id, 0]], ...}
+
+        pole1 = labels_v.get("Pole1", [0])
+        pole1 = points[pole1, 1:]  # get XYZ coordinates for Pole1
+
+        pole2 = labels_v.get("Pole2", [1])[0]
+        pole2 = points[pole2, 1:]  # get XYZ coordinates for Pole2
+
+        segment_df = points[np.where(np.isin(points[:, 0], [0, 1, 2, 3])), :] # get all segments (assuming they are labeled 0-3)
+        segment_df = points[np.where(points[:, 0] == 0), :]  # get only segments labeled 0 (assuming fiber segments are labeled 0)
+
+    print("Data loaded. Starting pre-analysis...")
+    print("Pole1 coordinates:", pole1)
+    print("Pole2 coordinates:", pole2)

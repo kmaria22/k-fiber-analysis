@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import os
 from openpyxl import Workbook
 
 def fiber_length(points):
